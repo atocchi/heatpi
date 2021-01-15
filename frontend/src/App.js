@@ -26,7 +26,8 @@ function App() {
   const [status,setStatus] = useState(false);
   const [enable, setEnable] =useState(true);
   const [time, setTime] =useState(0);
- 
+  const [timing, setTiming] =useState(null);
+  let timex = 0;
   const [hms, setHMS] = useState({
     hours: 0,
     minutes: 0,
@@ -34,29 +35,62 @@ function App() {
   })
   //get status of the switch (false is off true is on)
   useEffect(()=>{
-    Axios(ip).then(function (res){
+    Axios(process.env.REACT_APP_IP).then(function (res){
       setStatus(res.data.bool)
-      setTime(res.data.date)
-      console.log(status)
+      timex = res.data.time
+      if(timex !== 0){
+        setEnable(false)
+        if(timing !== null){
+          clearInterval(timing)
+        }
+        setTiming(setInterval(function(){
+          timex = timex -1
+          setTime(timex)
+          //hour minute seconds
+          let hours = Math.floor(timex/3600)
+          let minutes = Math.floor((timex - (hours * 3600))/60)
+          let seconds = (timex - ((hours * 3600) + (minutes * 60)))
+          setHMS({hours: hours, minutes: minutes, seconds: seconds})
+          if(timex == 0){
+            console.log('cleared')
+            setEnable(true);
+            clearInterval(timing)
+          }
+          console.log(timex);
+          },1000 ))
+        }
     })
-  },[status])
+      
+  },[])
  //submit function with axios
  function power(){
    let data = {post: status}
-   Axios.post(ip, data).then(function (res){
+   Axios.post(process.env.REACT_APP_IP + '/post', data).then(function (res){
     console.log(res.data)
     setStatus(res.data)
    })
  }
 
  function timer(x){
-  setTime(x);
   let data = {seconds: x};
-  Axios.post(ip,data)
+  setEnable(false)
+  if(x === 'clear'){
+    Axios.post(process.env.REACT_APP_IP + '/date',data)
+    setTime(0)
+    timex = 0;
+    setHMS({hours: 0, minutes: 0, seconds: 0});
+    clearInterval(timing);
+    setEnable(true);
+    return;
+  }
+  setTime(x);
+  Axios.post(process.env.REACT_APP_IP + '/date',data)
   console.log('timer')
-  let timex = x
+  timex = x
   //interval within function to be cleared
-  let timing = setInterval(function(){
+  console.log(timing)
+  clearInterval(timing)
+  setTiming(setInterval(function(){
   timex = timex -1
   setTime(timex)
   //hour minute seconds
@@ -69,7 +103,7 @@ function App() {
     clearInterval(timing)
   }
   console.log(timex);
-  },1000 )
+  },1000 ))
 }
   return (
     <div className="App">
@@ -84,7 +118,7 @@ function App() {
           </div>
           <Switch label='power' size="large" checked={status} onChange={power} />
           <ButtonGroup  variant="contained" color="primary" aria-label="contained primary button group">
-            <Button disabled={enable}>Clear</Button>
+            <Button onClick={()=>timer('clear')}color="secondary" disabled={enable}>Clear</Button>
             <Button onClick={()=>timer(7200)}>2hrs</Button>
             <Button onClick={()=>timer(14400)}>4hrs</Button>
             <Button onClick={()=>timer(28800)}>8hrs</Button>
