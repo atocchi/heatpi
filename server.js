@@ -7,12 +7,14 @@ app.use(express.urlencoded({extended: true}));
 app.use(express.json());
 app.use(cors());
 
+app.use(express.static('build'))
+
 let status = false;
 let led = '';
 let date = 0;
 let time = '';
-
-app.get('/', (req,res) => {
+let timer = null;
+app.get('/api', (req,res) => {
 	let data = {bool: status, time: date}
 	res.send(data);
 });
@@ -36,19 +38,35 @@ app.post('/date', (req,res) => {
 	console.log(request);
 	time = request;
 	res.send('recieved');
+	if(request === 'clear'){
+	clearInterval(timer);
+	date = 0;
+	return;
+	}
 	if(status === true){
-		if(date <= time){
 		date = time;
-		
+		if(setInterval !==null){
+			clearInterval(timer)
 		}
+		timer = setInterval(function() {
+			date = date - 1;
+			console.log(date);
+			if(date == 1){
+				clearInterval(timer);
+				status = false;
+				date = 0;
+				led.writeSync(0);
+				led.unexport();
+			}
+		},1000);
 	}
 	else{
 		status = true
-		date = time
+		date = time;
 		console.log(date) 
 		led = new gpio(4, 'out');
 		led.writeSync(1);
-		let timer = setInterval(function () {
+		timer = setInterval(function () {
 			date = date - 1;
 			console.log(date);
 			if(date == 1){
@@ -59,6 +77,14 @@ app.post('/date', (req,res) => {
 			} 
 		}, 1000);
 	}
+});
+
+app.get('/*', function(req,res) {
+	res.sendFile(__dirname,('build/index.html'), function(err) {
+		if (err) {
+			res.status(500).send(err);
+		}
+})
 });
 
 app.listen(port, () => {
